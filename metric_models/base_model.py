@@ -7,7 +7,7 @@ from metric_models.base import get_scheduler, init_weights
 
 class MetricModelBase:
     """Define the metric learning basemodel"""
-    def __init__(self, lr=0.001, gpu_ids=[0], distance='euclidean', is_train=True, **kwargs) -> None:
+    def __init__(self, gpu_ids=[0], distance='euclidean', is_train=True, **kwargs) -> None:
         self.distance = distance
         self.is_train = is_train
         self.gpu_ids = gpu_ids
@@ -25,7 +25,9 @@ class MetricModelBase:
         self.nets = []      # store network name
             
     def to_device(self):
-        self.embedding_net.to(self.device)
+        for name in self.nets:
+            net = getattr(self, name + '_net')
+            net.to(self.device)
         
     def load_scheduler(self, lr_policy='step', **kwargs):
         """Load scheduler"""
@@ -34,8 +36,10 @@ class MetricModelBase:
             self.scheduler = get_scheduler(self.optimizer, lr_policy, **kwargs)            
         
     def init_net(self, init_type='normal', init_gian=0.2):
-        """Initialize the weights of embedding net"""
-        init_weights(self.embedding_net, init_type=init_type, init_gain=init_gian)
+        """Initialize all nets"""
+        for name in self.nets:
+            net = getattr(self, name + '_net')
+            init_weights(net, init_type=init_type, init_gain=init_gian)
             
     def _compute_distance(self, x, y):
         """Conpute the distance between x and y"""
@@ -69,6 +73,7 @@ class MetricModelBase:
         Ps: The ground truth of samples is not necessary for this task
         """
         if not self.is_train: return
+        self.train()
         loss, acc = self._forward(Xs, Xq, n_ways)
         
         # backward net
@@ -87,19 +92,22 @@ class MetricModelBase:
             n-ways (int): the number of classes of support set.
         Ps: The ground truth of samples is not necessary for this task
         """
-        self.embedding_net.eval()
+        self.eval()
         with torch.no_grad():
             loss, acc = self._forward(Xs, Xq, n_ways)
         return loss.item(), acc.item()
     
     def pred(self, Xs, Xq, n_ways):
         """
-        Predict 
+        Perfrom a prediction on a N-way-K-shot task
 
         Args:
-            Xs (Tensor): the support set for prediction, containing n_ways * num_support samples
-            Xq (Tensor): the query set for prediction
-            n_ways (_type_): _description_
+            Xs (Tensor): Support set, size of (N-way * num_support, c, w, d)
+            Xq (Tensor): Query set, size of (num_query, c, w, d)
+            n_ways (int): N-way
+
+        Returns:
+            Tensor: Pred value of each query sample
         """
         raise NotImplementedError
         
@@ -146,3 +154,16 @@ class MetricModelBase:
             if hasattr(state, '_metadata'):
                 del state._metadata
             net.load_state_dict(state)
+            
+    def train(self):
+        """Switch model to train mode"""
+        for name in self.nets:
+            net = getattr(self, name + '_net')
+            net.train()
+        
+    def eval(self):
+        """Switch model to eval mode"""
+        for name in self.nets:
+            net = getattr(self, name + '_net')
+            net.eval()
+        

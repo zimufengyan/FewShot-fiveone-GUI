@@ -63,3 +63,22 @@ def compute_accuracy(y_hat, y):
     b_size = y.shape[0] if len(y.shape) > 1 else y.shape
     cmp = y_hat.type(y.dtype) == y
     return float(cmp.type(y.dtype).sum().item()) / b_size
+
+
+def compute_map_size(nets, width, height):
+    """compute the width and heigth of final feature map"""       
+    def compute(net, w, h):
+        if isinstance(net, nn.Sequential) or isinstance(net, list):
+            for m in net:
+                w, h = compute(m, w, h)
+        elif isinstance(net, nn.Conv2d):
+            k, s, p = net.kernel_size, net.stride, net.padding
+            w = (w - k[0] + 2 * p[0]) // s[0] + 1   # tuple for Con2d
+            h = (h - k[1] + 2 * p[1]) // s[1] + 1
+        elif isinstance(net, nn.MaxPool2d):
+            k, s, p = net.kernel_size, net.stride, net.padding
+            w = (w - k + 2 * p) // s + 1            # int for MaxPool2d
+            h = (h - k + 2 * p) // s + 1
+        return w, h
+    
+    return compute(nets, width, height)

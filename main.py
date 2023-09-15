@@ -13,6 +13,7 @@ from PIL import ImageQt, Image
 from ui.Ui_main import Ui_MainWindow
 from metric_models.matching import MatchingModel
 from metric_models.proto import ProtoModel
+from metric_models.relation import RelationModel
 from sampler import OneShotSampler
 
 class MainWindow(QMainWindow):
@@ -54,9 +55,9 @@ class MainWindow(QMainWindow):
         self.initUi()        
         
     def initUi(self):
-        self.setWindowTitle("Five-Ways-One-Shot Prediction")
+        self.setWindowTitle("Five-Way-One-Shot Prediction")
         self.setWindowIcon(QIcon(os.path.join(self.ref_dir, 'icon.png')))
-        self.ui.modelCombo.addItems(['MatchingNet', 'ProtoNet'])
+        self.ui.modelCombo.addItems(['MatchingNet', 'ProtoNet', 'RelationNet'])
         self.ui.datasetCombo.addItems(['Omniglot', 'mini-ImageNet'])
         self.ui.accLabel.setText("")
         
@@ -106,15 +107,17 @@ class MainWindow(QMainWindow):
         self.model_name = model_name + '_on_' + self.dataset_name
         folder = os.path.join(self.load_dir, model_name)
         if self.dataset_name == 'Omniglot':
-            in_channels, out_channels, num_hiddens = 1, 64, 64
-            input_shape = [28, 28]
+            out_channels, num_hiddens = 64, 64
+            input_shape = [1, 28, 28]
             epoch = 100
         else:
             return
         if model_name == 'MatchingNet':
-            self.model = MatchingModel(in_channels, out_channels, input_shape, num_hiddens=num_hiddens, is_train=False)
+            self.model = MatchingModel(input_shape, out_channels, num_hiddens=num_hiddens, is_train=False)
         elif model_name == 'ProtoNet':
-            self.model = ProtoModel(in_channels, out_channels, input_shape, num_hidden=num_hiddens, is_train=False)
+            self.model = ProtoModel(input_shape, out_channels, num_hidden=num_hiddens, is_train=False)
+        elif model_name == 'RelationNet':
+            self.model = RelationModel(input_shape, num_hiddes=num_hiddens, is_train=False)
         else:return
         self.log.debug(f"Loading model from path: {folder}")
         self.model.load_networks(self.load_dir, self.dataset_name, epoch)
@@ -165,8 +168,8 @@ class MainWindow(QMainWindow):
         Xs = self.sampler.transformer(self.support_set, self.transform)
         Xq = self.sampler.transformer(self.query, self.transform).unsqueeze(0)
         pred = self.model.pred(Xs, Xq, self.n_ways)
-        self.log.debug(f"End prediction, pred value: {pred.cpu().item()}")
-        self.show_pred_arrow(pred.cpu().item() + 1)
+        self.log.debug(f"End prediction, pred value: {pred.item()}")
+        self.show_pred_arrow(pred.item() + 1)
             
     def show_true_arrow(self):
         target_label = self.ui.targetClassLabel.text()

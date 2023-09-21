@@ -4,40 +4,49 @@ from torch import nn
 import itertools
 import torch.nn.functional as F
 
-from metric_models.networks import EmbeddingNet, DistanceNet
+from metric_models.networks import EmbeddingNet, SelfAttention
 from metric_models.base_model import MetricModelBase
 
 
-class RelationModel(MetricModelBase):
+class SelfAttentionRelationModel(MetricModelBase):
     """Define the matching model class"""
     def __init__(self, input_shape, num_hiddens=64, 
                  lr=0.001, gpu_ids=[0], is_train=True, **kwargs) -> None:
         super().__init__(gpu_ids, is_train=is_train, **kwargs)
         
-        with_poolings = [True, True, False, False, True, True]
+        with_poolings = [True, True, False, False]
         self.embedding_net = EmbeddingNet(
             input_shape=input_shape, out_channels=num_hiddens, num_hiddens=num_hiddens, 
-            num_layers=4, with_poolings=with_poolings[:4]
+            num_layers=4, with_poolings=with_poolings
         )
         
-        # input of distance net is the concat result of support set and query set along feature dim
+        # input of attention and distance net is the concat result of support set and query set along feature dim
+        # difference from Relation Network
         out_size = self.embedding_net.out_size
         d_input_shape = (out_size[0] * 2, out_size[1], out_size[2])   
-        self.distance_net = DistanceNet(
-            input_shape=d_input_shape, num_hiddens=num_hiddens, with_poolings=with_poolings[4:]    
+        self.attention_net =  nn.Sequential(
+            SelfAttention(in_channels=d_input_shape[0]),
+            SelfAttention(in_channels=d_input_shape[0])
+        )
+        fce_size = d_input_shape[0] * d_input_shape[1] * d_input_shape[2]
+        self.distance_net = nn.Sequential(
+            nn.Linear(fce_size, 8), nn.ReLU(inplace=True),
+            nn.Linear(8, 1), nn.Sigmoid()
         )
         
-        self.model_name = 'RelationNet'
-        self.nets = ['embedding', 'distance']      # store network name
+        
+        self.model_name = 'SelfAttentionRelationNet'
+        self.nets += ['embedding', 'attention', 'distance']      # store network name
         
         if is_train:
             self.optimizer = torch.optim.Adam(
-                itertools.chain(self.embedding_net.parameters(), self.distance_net.parameters()), lr=lr
+                itertools.chain(self.embedding_net.parameters(), self.attention_net.parameters(), self.distance_net.parameters()),
+                lr=lr
             )
         
     def _forward(self, Xs, Xq, n_ways):
         """
-        The forward function of Relation Model
+        The forward function of Self-Attention Relation Model
         """
         num_support = Xs.size(0) // n_ways
         num_query = Xq.size(0) // n_ways
@@ -67,7 +76,9 @@ class RelationModel(MetricModelBase):
         target_inds = target_inds.long().to(self.device)
         
         # compute the relation scores between samples of query_set and support set
-        scores = self.distance_net(cats).view(n_ways * num_query, n_ways)     # shape: (n_ways * num_query, n_ways)
+        # difference from Relation Network
+        attention_out  =self.attention_net(cats).view(size[0] * size[1], -1)
+        scores = self.distance_net(attention_out).view(n_ways * num_query, n_ways)     # shape: (n_ways * num_query, n_ways)
         
         # compute loss by mse for relation net
         # math: \sum_{i=1}^{m}\sum_{j=1}^{n} (r_{i,j}-\(y_{i}==y_{j}))^{2} 
@@ -101,8 +112,11 @@ class RelationModel(MetricModelBase):
             cats = torch.cat([Zs, Zq], dim=2)
             size = list(cats.size())        
             cats = cats.view(num_query * n_ways, *size[2:])  
-            # compute the distance scores between samples of query_set and support set
-            scores = self.distance_net(cats).view(num_query, n_ways)
+            
+            # compute the attention and distance scores between samples of query_set and support set
+            # difference from Relation Network
+            attention_out = self.attention_net(cats).view(num_query * n_ways, -1)
+            scores = self.distance_net(attention_out).view(num_query, n_ways)
             _, y_hat = scores.max(1)
             print(scores.cpu())
         

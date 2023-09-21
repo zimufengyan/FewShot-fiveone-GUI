@@ -5,16 +5,14 @@ from PyQt6.QtCore import *
 from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox
 from PyQt6.QtGui import QPixmap, QIcon
 import torch
-from torchvision import datasets
-from torchvision.transforms import transforms, InterpolationMode
+from torchvision.transforms import ToPILImage
 import PIL
 from PIL import ImageQt, Image
 
 from ui.Ui_main import Ui_MainWindow
-from metric_models.matching import MatchingModel
-from metric_models.proto import ProtoModel
-from metric_models.relation import RelationModel
-from sampler import OneShotSampler
+from factory import ModelFactor
+from dataloader import DatasetLoader
+
 
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
@@ -41,33 +39,27 @@ class MainWindow(QMainWindow):
         # for model
         self.n_ways = 5
         self.k_shot = 1
+        self.model_factor = ModelFactor()
+        self.dataloader = DatasetLoader()
         self.model = None
-        self.dataset = None
-        self.sampler = None
-        self.samples = None
         self.dataset_name = None
-        self.transform = None
-        self.load_dir = '.' + os.sep + 'checkpoints'
-        self.accuracy_dict = {
-            'MatchingNet_on_Omniglot': 0.8180, 'ProtoNet_on_Omniglot': 0.9840,
-        }
         
         self.initUi()        
         
     def initUi(self):
         self.setWindowTitle("Five-Way-One-Shot Prediction")
         self.setWindowIcon(QIcon(os.path.join(self.ref_dir, 'icon.png')))
-        self.ui.modelCombo.addItems(['MatchingNet', 'ProtoNet', 'RelationNet'])
+        self.ui.modelCombo.addItems(self.model_factor.model_names)
         self.ui.datasetCombo.addItems(['Omniglot', 'mini-ImageNet'])
         self.ui.accLabel.setText("")
         
     @staticmethod
     def _to_qpixmap(sample, size=(128, 128)):
         if isinstance(sample, torch.Tensor):
-            trans = transforms.ToPILImage()
+            trans = ToPILImage()
             sample = trans(sample)
-        if isinstance(sample, PIL.PngImagePlugin.PngImageFile):
-            raise TypeError("The type of param 'sample' should be torch.Tensor or PIL.PngImagePlugin.PngImageFile")
+        if not isinstance(sample, PIL.Image.Image):
+            raise TypeError("The type of param 'sample' should be torch.Tensor or PIL.Image.Image")
         image = sample.resize(size, Image.Resampling.BICUBIC)
         pixmap = ImageQt.toqpixmap(image)
         return pixmap
@@ -77,52 +69,20 @@ class MainWindow(QMainWindow):
         self.log.debug(f'The button "{sender.objectName()}" has been clicked')
         self.load_dataset()
         self.load_model()
-        accuracy = self.accuracy_dict.get(self.model_name, 0.0000)
-        self.ui.accLabel.setText(str(accuracy))
         
     def load_dataset(self):
         self.dataset_name = self.ui.datasetCombo.currentText()
-        if self.dataset is not None and self.dataset.__class__.__name__ == self.dataset_name:
-            self.log.debug("The dataset had been loaded, skipping this operation")
-            return
-        if self.dataset_name == 'Omniglot':
-            self.log.debug("Loading Omniglot dataset")
-            self.transform = transforms.Compose([
-                transforms.Resize((28, 28), interpolation=InterpolationMode.BICUBIC),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=0.87, std=0.33)
-            ])
-            # use transform before prediction, but after showing
-            self.dataset = datasets.Omniglot(root='./data', background=False, download=False)
-            self.sampler = OneShotSampler(self.dataset)
-        elif self.dataset_name == 'mini_ImageNet':
-            return
-        else:
-            return
-        self.log.debug("Dataset has been loaded")
+        self.dataloader.init_dataset(self.dataset_name)
         
     def load_model(self):
         # load corresponding model
         model_name = self.ui.modelCombo.currentText()
-        self.model_name = model_name + '_on_' + self.dataset_name
-        folder = os.path.join(self.load_dir, model_name)
-        if self.dataset_name == 'Omniglot':
-            out_channels, num_hiddens = 64, 64
-            input_shape = [1, 28, 28]
-            epoch = 100
-        else:
-            return
-        if model_name == 'MatchingNet':
-            self.model = MatchingModel(input_shape, out_channels, num_hiddens=num_hiddens, is_train=False)
-        elif model_name == 'ProtoNet':
-            self.model = ProtoModel(input_shape, out_channels, num_hidden=num_hiddens, is_train=False)
-        elif model_name == 'RelationNet':
-            self.model = RelationModel(input_shape, num_hiddes=num_hiddens, is_train=False)
-        else:return
-        self.log.debug(f"Loading model from path: {folder}")
-        self.model.load_networks(self.load_dir, self.dataset_name, epoch)
-        self.model.to_device()
+        self.log.debug("Loading model")
+        self.model = self.model_factor.get_model(model_name, self.dataset_name, self.n_ways)
         self.log.debug("Model has been loaded")
+        accuracy = self.model_factor.get_accuracy(model_name, self.dataset_name)
+        self.log.debug(f"Model accuracy: {accuracy}")
+        self.ui.accLabel.setText(str(accuracy))
         
     def on_click_sample_btn(self):
         sender = self.sender()
@@ -132,14 +92,15 @@ class MainWindow(QMainWindow):
         self.hide_arrows()
         
         self.log.debug(f'Sample a batch of samples to show')
-        if self.sampler == None: 
-            self.log.error('The sampler is NoneType, return')
+        if not self.dataloader.is_available(): 
+            self.log.error('The dataloader is not available, return')
             warning_txt = '请先选择模型和数据源，并点击加载按钮加载响应组件'
             QMessageBox.warning(
                 self, "警告", warning_txt, QMessageBox.StandardButton.Ok, QMessageBox.StandardButton.Ok
             )
             return
-        self.support_set, self.query, self.query_label = self.sampler.sample_batch(self.n_ways)
+        self.support_set, self.query, self.query_label = self.dataloader.get_batch(self.n_ways)
+       
         self.ui.targetClassLabel.setText(str(self.query_label + 1))
         target_sample = self.query.copy() 
         target_pixmap = self._to_qpixmap(target_sample)
@@ -165,11 +126,11 @@ class MainWindow(QMainWindow):
             return
         # transform samples
         self.log.debug('Predicting samples')
-        Xs = self.sampler.transformer(self.support_set, self.transform)
-        Xq = self.sampler.transformer(self.query, self.transform).unsqueeze(0)
-        pred = self.model.pred(Xs, Xq, self.n_ways)
-        self.log.debug(f"End prediction, pred value: {pred.item()}")
-        self.show_pred_arrow(pred.item() + 1)
+        Xs = self.dataloader.transformer(self.support_set)
+        Xq = self.dataloader.transformer(self.query)
+        pred = self.model_factor.pred(self.model, Xs=Xs, Xq=Xq, n_way=self.n_ways)
+        self.log.debug(f"End prediction, pred value: {pred}")
+        self.show_pred_arrow(pred + 1)
             
     def show_true_arrow(self):
         target_label = self.ui.targetClassLabel.text()

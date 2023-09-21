@@ -2,6 +2,5 @@ numpy==1.21.5
 Pillow==10.0.0
 PyQt6==6.5.2
 PyQt6_sip==13.5.2
-torch==1.13.1+cu117
-torchvision==0.14.1+cu117
-~atplotlib==3.4.0
+torch==1.9.1
+torchvision==0.10.1

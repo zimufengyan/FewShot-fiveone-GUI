@@ -4,7 +4,7 @@ from torch import nn
 import torch.nn.functional as F
 import itertools
 
-from metric_models.nets import EmbeddingNet, BidirectionLSTMEmbedding
+from metric_models.networks import EmbeddingNet, BidirectionLSTMEmbedding
 from metric_models.base_model import MetricModelBase
 from metric_models.base import init_weights
 
@@ -138,4 +138,4 @@ class MatchingModel(MetricModelBase):
             print(p_y.cpu())
             _, y_hat = p_y.max(1)
         
-        return y_hat
+        return y_hat.cpu()

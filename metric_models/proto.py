@@ -3,7 +3,7 @@ import torch
 from torch import nn 
 import torch.nn.functional as F
 
-from metric_models.nets import EmbeddingNet
+from metric_models.networks import EmbeddingNet
 from metric_models.base_model import MetricModelBase
 
 
@@ -66,4 +66,4 @@ class ProtoModel(MetricModelBase):
             _, y_hat = log_p_y.max(1)
             print(log_p_y.cpu())
         
-        return y_hat
+        return y_hat.cpu()

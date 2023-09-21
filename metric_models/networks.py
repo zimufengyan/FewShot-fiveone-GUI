@@ -71,22 +71,44 @@ class DistanceNet(nn.Module):
         """X: the concat result of support set and query set along the feature dim"""
         return self.net(X)  # shape: (X.size(0), 1)
     
-    
-class AttentionClassifier(nn.Module):
-    """Define the classifier with softmax attention"""
-    def __init__(self) -> None:
+
+class SelfAttention(nn.Module):
+    """
+    Define a self-attention module for Self-Attention Relation Net (SARN).
+    Implemented by of embedding Gaussian version with bottleneck of 'in_channels // 2' channels
+    reference from Xiaolong Wang, Ross Girshick, Abhinav Gupta, and Kaiming He, "Non-local neural networks," in CVPR, 2018
+    """
+    def __init__(self, in_channels) -> None:
         super().__init__()
-     
-    def forward(self, similarities, ys):
+        
+        self.in_channels = in_channels
+        self.query_conv = nn.Conv2d(in_channels, in_channels // 2, 1)
+        self.key_conv = nn.Conv2d(in_channels, in_channels // 2, 1)
+        self.value_conv = nn.Conv2d(in_channels, in_channels // 2, 1)
+        self.out_conv = nn.Conv2d(in_channels // 2, in_channels, 1)
+        self.gamma = nn.Parameter(torch.zeros(1))
+        
+    def forward(self, X):
         """
+        The forward function of self-attenion
         Parameters:
-            similarities (Tensor): a tensor represents the similarities between support set and query set, 
-                                size of (n_ways*num_query, n_ways*num_support)
-            ys (Tensor): a tensor consisted of labels of support set, size of (n_ways*num_support, num_classes)
+            X (Tensor): input feature map, shape of (batch_size, c_in, w, h)
+        Return:
+            out (Tensor): self-attenion value + input feature, shape of (batch_size, c, w, h)
         """
-        score = F.softmax(similarities, dim=1)
-        preds = score @ ys   # shape: (batch_size, num_classes)
-        return preds
+        b_size, c, w, h = X.size()
+        n = w * h
+        query = self.query_conv(X).view(b_size, -1, n).permute(0, 2, 1)    # Q shape : (b_size, n, c // 2)  
+        key = self.key_conv(X).view(b_size, -1, n)          # K.T shape: (b_size, c // 2, n)
+        value = self.value_conv(X).view(b_size, -1, n)      # V shape: (b_size, c // 2, n)
+        score = torch.bmm(query, key)           # Q @ K.T
+        score = F.softmax(score, dim=1)        # shape: (b_size, n, n)
+        
+        out = torch.bmm(value, score)
+        out = out.view(b_size, c // 2, w, h)           # shape: (b_size, c // 2, w, h)
+        out = self.out_conv(out)                       # shape: (b_size, c, w, h)
+        
+        return self.gamma * out + X
     
     
 class BidirectionLSTMEmbedding(nn.Module):
@@ -107,4 +129,5 @@ class BidirectionLSTMEmbedding(nn.Module):
         c0 = torch.randn(size=(self.num_layers * 2, X.size(0), self.num_hiddens)).to(self.device)
         output, (_, _) = self.fce(X, (h0, c0))
         return output
+    
     

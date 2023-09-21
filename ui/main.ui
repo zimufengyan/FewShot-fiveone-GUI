@@ -659,9 +659,9 @@
    <widget class="QWidget" name="layoutWidget_6">
     <property name="geometry">
      <rect>
-      <x>730</x>
+      <x>690</x>
       <y>79</y>
-      <width>201</width>
+      <width>241</width>
       <height>30</height>
      </rect>
     </property>
@@ -748,9 +748,9 @@ li.checked::marker { content: &quot;\2612&quot;; }
    <widget class="QWidget" name="layoutWidget">
     <property name="geometry">
      <rect>
-      <x>730</x>
+      <x>690</x>
       <y>39</y>
-      <width>201</width>
+      <width>241</width>
       <height>30</height>
      </rect>
     </property>
@@ -973,7 +973,7 @@ QPushButton:pressed {;
      <bool>true</bool>
     </property>
    </widget>
-   <widget class="QWidget" name="">
+   <widget class="QWidget" name="layoutWidget">
     <property name="geometry">
      <rect>
       <x>730</x>
@@ -1051,6 +1051,7 @@ QPushButton:pressed {;
      </item>
     </layout>
    </widget>
+   <zorder>layoutWidget</zorder>
    <zorder>trueLabel</zorder>
    <zorder>predLabel</zorder>
    <zorder>layoutWidget</zorder>
@@ -1060,10 +1061,8 @@ QPushButton:pressed {;
    <zorder>layoutWidget_5</zorder>
    <zorder>layoutWidget</zorder>
    <zorder>layoutWidget_6</zorder>
-   <zorder>layoutWidget_7</zorder>
    <zorder>textEdit</zorder>
    <zorder>layoutWidget</zorder>
-   <zorder>loadBtn</zorder>
    <zorder>sampleBtn</zorder>
    <zorder>predBtn</zorder>
    <zorder>loadBtn</zorder>

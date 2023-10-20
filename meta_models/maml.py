@@ -3,8 +3,9 @@ import torch
 from torch import nn 
 import torch.nn.functional as F
 from collections import OrderedDict
+import sys
 
-from meta_models.base import get_scheduler, init_weights, compute_accuracy
+from meta_models.utils import *
 from meta_models.base_model import MetaModelBase
 
 
@@ -19,25 +20,28 @@ class ModelAgnosticMetaLearning(MetaModelBase):
         self.model_name = 'MAML'
         self.nets = ['learner']
         
-        self.device = torch.device(
-            'cuda:{}'.format(self.gpu_ids[0])
-            ) if self.gpu_ids and torch.cuda.is_available() else torch.device('cpu')  # get device name: CPU or GPU
-        
         if is_train:
             self.optimizer = torch.optim.Adam(
                 self.learner_net.parameters(), lr=meta_lr
             )
-            if self.is_classify_task:
-                # for classify task
-                if self.num_classes is not None and self.num_classes > 2:
-                    self.criterion = nn.CrossEntropyLoss()
-                elif self.num_classes is not None:
-                    self.criterion = nn.BCEWithLogitsLoss()
-                else:
-                    raise ValueError("The param 'num_classes' must be specified when param 'is_classify_task' eqals 'True'")
+        if self.is_classify_task:
+            # for classify task
+            if self.num_classes is not None and self.num_classes > 2:
+                self.criterion = nn.CrossEntropyLoss()
+            elif self.num_classes is not None:
+                self.criterion = nn.BCEWithLogitsLoss()
             else:
-                # for regression task
-                self.criterion = nn.MSELoss()
+                raise ValueError("The param 'num_classes' must be specified when param 'is_classify_task' eqals 'True'")
+        else:
+            # for regression task
+            self.criterion = nn.MSELoss()
+                
+    def init_task_lr(self, init_task_lr=1e-3):
+        """Initialize lr matrix"""
+        for k, v in self.learner_net.named_parameters():
+            self.test_lr[k] = nn.Parameter(
+                init_task_lr * torch.ones_like(v, requires_grad=True, device=self.device)
+            )
         
     def _forward(self, support_sets, query_sets, inner_step, lr):
         num_tasks = support_sets[-1].size(0)
@@ -78,7 +82,8 @@ class ModelAgnosticMetaLearning(MetaModelBase):
             grads = torch.autograd.grad(
                 support_loss, fast_weights.values(), create_graph=False
             )
-            fast_weights = OrderedDict((name, param - lr * grad)
+            # different from MAML
+            fast_weights = OrderedDict((name, param - lr[name] * grad)
                                                    for ((name, param), grad) in zip(fast_weights.items(), grads))
 
         return fast_weights
@@ -102,5 +107,6 @@ class ModelAgnosticMetaLearning(MetaModelBase):
             _, y_hat = logits.max(1)
             return y_hat.cpu()
         return logits.cpu()
+    
             
 FOMAML = ModelAgnosticMetaLearning

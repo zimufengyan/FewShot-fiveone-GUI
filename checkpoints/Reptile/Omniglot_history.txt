@@ -1,0 +1,2 @@
+dataset_root,dataset_name,lr_train,lr_test,lr_scheduler_policy,lr_decay_epochs,lr_gamma,inner_step_train,inner_step_test,batch_size,n_epochs,iters,iters_val,iters_test,n_way,k_shot_support,k_shot_query,gpu_ids,print_freq,save_dir,manual_seed,download,n_hiddens,init_type,init_gain,plot_dir,num_workers,accuracy
+../data,Omniglot,0.2,0.2,step,20,0.5,1,3,16,100,200,100,1000,5,1,1,0,1,../checkpoints,-1,False,64,normal,0.02,../plot,8,0.98128111

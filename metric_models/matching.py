@@ -3,10 +3,11 @@ import torch
 from torch import nn 
 import torch.nn.functional as F
 import itertools
+import sys
 
+from metric_models.utils import *
 from metric_models.networks import EmbeddingNet, BidirectionLSTMEmbedding
 from metric_models.base_model import MetricModelBase
-from metric_models.base import init_weights
 
 
 class MatchingModel(MetricModelBase):

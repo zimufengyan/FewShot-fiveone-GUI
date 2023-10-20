@@ -57,7 +57,8 @@
         </size>
        </property>
        <property name="styleSheet">
-        <string notr="true">background-color:white</string>
+        <string notr="true">background-color:white;
+border:1px solid  #0072E3</string>
        </property>
        <property name="text">
         <string/>
@@ -161,7 +162,8 @@
         </size>
        </property>
        <property name="styleSheet">
-        <string notr="true">background-color:white</string>
+        <string notr="true">background-color:white;
+border:1px solid  #0072E3</string>
        </property>
        <property name="text">
         <string/>
@@ -265,7 +267,8 @@
         </size>
        </property>
        <property name="styleSheet">
-        <string notr="true">background-color:white</string>
+        <string notr="true">background-color:white;
+border:1px solid  #0072E3</string>
        </property>
        <property name="text">
         <string/>
@@ -369,7 +372,8 @@
         </size>
        </property>
        <property name="styleSheet">
-        <string notr="true">background-color:white</string>
+        <string notr="true">background-color:white;
+border:1px solid  #0072E3</string>
        </property>
        <property name="text">
         <string/>
@@ -473,7 +477,8 @@
         </size>
        </property>
        <property name="styleSheet">
-        <string notr="true">background-color:white</string>
+        <string notr="true">background-color:white;
+border:1px solid  #0072E3</string>
        </property>
        <property name="text">
         <string/>
@@ -564,6 +569,12 @@
     <layout class="QVBoxLayout" name="verticalLayout">
      <item>
       <widget class="QLabel" name="imgLabel_1">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
        <property name="minimumSize">
         <size>
          <width>128</width>
@@ -577,7 +588,8 @@
         </size>
        </property>
        <property name="styleSheet">
-        <string notr="true">background-color:white</string>
+        <string notr="true">background-color:white;
+border:1px solid  #0072E3</string>
        </property>
        <property name="text">
         <string/>

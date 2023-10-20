@@ -1,0 +1,2 @@
+dataset_root,dataset_name,learning_rate,n_epochs,iters,batch_size,dropout,lr_scheduler_policy,lr_decay_epochs,lr_gamma,num_classes,num_samples_per_class,gpu_ids,print_freq,save_dir,manual_seed,download,init_type,init_gain,plot_dir,num_workers,accuracy
+/opt/data/private/MetaLrReplay/data/omniglot-py,Omniglot,0.001,100,1000,16,0.9,step,20,0.5,5,1,0,1,../checkpoints,-1,False,normal,0.02,../plot,6,0.9575625

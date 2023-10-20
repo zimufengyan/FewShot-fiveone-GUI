@@ -1,8 +1,10 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
+import sys
+import os
 
-from metric_models.base import compute_map_size
+from metric_models.utils import *
 
 
 def conv_block(in_channel, out_channel, with_pooling=True):
